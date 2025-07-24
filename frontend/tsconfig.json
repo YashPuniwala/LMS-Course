@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "target": "ESNext",                     // Modern JavaScript support
+    "lib": ["DOM", "DOM.Iterable", "ESNext"], // Libraries for React + Web APIs
+    "module": "ESNext",                    // Module system for Vite
+    "moduleResolution": "Node",           // Resolve modules in Node style
+    "jsx": "react-jsx",                   // JSX support for React 17+
+    "strict": true,                       // Enable strict type checking
+    "esModuleInterop": true,              // CommonJS module compatibility
+    "skipLibCheck": true,                 // Skip library type checks
+    "forceConsistentCasingInFileNames": true, // Ensure consistent casing for imports
+    "baseUrl": ".",                       // Base URL for resolving paths
+    "paths": {
+      "@/*": ["./src/*"]                  // Path alias for '@/'
+    }
+  },
+  "include": ["src"],                     // Include the `src` directory
+  "exclude": ["node_modules"]             // Exclude `node_modules`
+}
