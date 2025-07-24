@@ -22,11 +22,30 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.json());
 app.use(cookieParser());
+
+const startServer = async () => {
+  try {
+    await connectDB();
+
+    if (process.env.NODE_ENV !== "production") {
+      app.listen(process.env.PORT, () =>
+        console.log("Server is up and running on PORT:5001")
+      );
+    }
+  } catch (error: any) {
+    console.error("Failed to start server", error.message);
+    process.exit(1);
+  }
+};
+
+startServer()
+
 const corsOptions = {
     origin: process.env.FRONTEND_URL,
     credentials: true
 }
 connectDB();
+
 app.use(cors(corsOptions));
 
 app.use("/api/v1", user);
