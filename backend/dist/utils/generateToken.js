@@ -11,12 +11,22 @@ const generateToken = (res, user, userId, message, statusCode = 200) => {
     const token = jsonwebtoken_1.default.sign({ userId }, jwtSecret);
     console.log(token, "token backend");
     // Set cookie and send response
+    // res.status(statusCode)
+    //     .cookie("token", token, {
+    //         secure: process.env.NODE_ENV === "production",
+    //         httpOnly: true,
+    //         sameSite: "strict",
+    //         maxAge: 24 * 60 * 60 * 1000, // 1 day
+    //     })
     res.status(statusCode)
         .cookie("token", token, {
-        secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000, // 1 day
+        // secure: isProduction,
+        secure: true, // Only use secure in production
+        // sameSite: isProduction ? 'none' : 'lax',
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+        path: '/'
     })
         .json({
         success: true,

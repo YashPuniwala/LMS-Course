@@ -74,6 +74,11 @@ const lectureSchema = new mongoose_1.Schema({
         },
         default: { hours: 0, minutes: 0 }
     },
+    course: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Course',
+        required: true
+    },
     totalMinutes: {
         type: Number,
         default: 0

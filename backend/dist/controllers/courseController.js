@@ -8,17 +8,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.removeCourse = exports.getPublishedCourse = exports.togglePublicCourse = exports.getLectureById = exports.removeSubLecture = exports.removeLecture = exports.editSubLecture = exports.editLecture = exports.getCourseLecture = exports.getSingleLectureSubLectures = exports.createSubLecture = exports.createLecture = exports.editCourse = exports.getCourseById = exports.getAllAdminCourses = exports.searchCourse = exports.createCourse = void 0;
 const courseModel_1 = require("../models/courseModel");
 const cloudinary_1 = require("../utils/cloudinary");
 const lectureModel_1 = require("../models/lectureModel");
+const mongoose_1 = __importDefault(require("mongoose"));
+const reviewModel_1 = require("../models/reviewModel");
 const calculateTotalDuration = (items) => {
     let totalMinutes = 0;
-    items.forEach(item => {
+    items.forEach((item) => {
         if (item.duration) {
             // Convert hours to minutes and add to total
-            totalMinutes += (item.duration.hours * 60) + item.duration.minutes;
+            totalMinutes += item.duration.hours * 60 + item.duration.minutes;
         }
     });
     // Calculate hours (whole number) and remaining minutes (0-59)
@@ -29,8 +34,8 @@ const calculateTotalDuration = (items) => {
         totalHours: parseFloat((totalMinutes / 60).toFixed(2)), // Keep decimal for totalHours
         duration: {
             hours, // Whole hours only
-            minutes // 0-59 minutes only
-        }
+            minutes, // 0-59 minutes only
+        },
     };
 };
 const updateCourseDuration = (lectureId) => __awaiter(void 0, void 0, void 0, function* () {
@@ -41,13 +46,13 @@ const updateCourseDuration = (lectureId) => __awaiter(void 0, void 0, void 0, fu
     // Get all lectures for this course
     const lectures = yield lectureModel_1.Lecture.find({ _id: { $in: course.lectures } });
     // Calculate total duration from all sub-lectures across all lectures
-    const allSubLectures = lectures.flatMap(lecture => lecture.subLectures);
+    const allSubLectures = lectures.flatMap((lecture) => lecture.subLectures);
     const courseDuration = calculateTotalDuration(allSubLectures);
     // Update the course with new duration info
     yield courseModel_1.Course.findByIdAndUpdate(course._id, {
         totalMinutes: courseDuration.totalMinutes,
         totalHours: courseDuration.totalHours,
-        totalDuration: courseDuration.duration
+        totalDuration: courseDuration.duration,
     });
 });
 const createCourse = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
@@ -172,7 +177,15 @@ exports.getAllAdminCourses = getAllAdminCourses;
 const getCourseById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const courseId = req.params.courseId;
-        const course = yield courseModel_1.Course.findById(courseId);
+        const course = yield courseModel_1.Course.findById(courseId)
+            .populate({
+            path: "reviews",
+            populate: {
+                path: "user",
+                select: "name photoUrl",
+            },
+        })
+            .populate("creator", "name photoUrl");
         if (!course) {
             res.status(404).json({
                 success: false,
@@ -180,12 +193,10 @@ const getCourseById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        console.log(course, "course");
         res.status(200).json({
             success: true,
             course,
         });
-        return;
     }
     catch (error) {
         console.log(error);
@@ -193,7 +204,6 @@ const getCourseById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             success: false,
             message: "Failed to get course by Id",
         });
-        return;
     }
 });
 exports.getCourseById = getCourseById;
@@ -283,36 +293,43 @@ const createLecture = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        // Create the new lecture
-        const lecture = yield lectureModel_1.Lecture.create({ lectureTitle });
-        // Find the course by ID
-        const course = yield courseModel_1.Course.findById(courseId);
+        // Create the new lecture with course reference
+        const lecture = yield lectureModel_1.Lecture.create({
+            lectureTitle,
+            course: courseId,
+            subLectures: [] // Initialize with empty subLectures
+        });
+        // Find the course by ID and update
+        const course = yield courseModel_1.Course.findByIdAndUpdate(courseId, { $push: { lectures: lecture._id } }, { new: true });
         if (!course) {
+            // Rollback lecture creation if course not found
+            yield lectureModel_1.Lecture.findByIdAndDelete(lecture._id);
             res.status(404).json({
                 success: false,
                 message: "Course not found.",
             });
             return;
         }
-        // Add the lecture ID to the course's lectures array
-        const lectureId = lecture._id;
-        course.lectures.push(lectureId);
-        // Save the updated course
-        yield course.save();
         res.status(201).json({
             success: true,
             message: "Lecture created successfully.",
             lecture,
         });
-        return;
     }
     catch (error) {
         console.error("Error creating lecture:", error);
+        if (error instanceof mongoose_1.default.Error.ValidationError) {
+            res.status(400).json({
+                success: false,
+                message: "Validation error",
+                errors: error.errors
+            });
+            return;
+        }
         res.status(500).json({
             success: false,
             message: "Failed to create lecture.",
         });
-        return;
     }
 });
 exports.createLecture = createLecture;
@@ -351,8 +368,8 @@ const createSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, functio
             publicId,
             duration: {
                 hours: parseInt(hours) || 0,
-                minutes: parseInt(minutes) || 0
-            }
+                minutes: parseInt(minutes) || 0,
+            },
         };
         // Add sub-lecture to lecture
         const lecture = yield lectureModel_1.Lecture.findByIdAndUpdate(lectureId, { $push: { subLectures: newSubLecture } }, { new: true });
@@ -369,7 +386,7 @@ const createSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, functio
         yield lectureModel_1.Lecture.findByIdAndUpdate(lectureId, {
             totalMinutes: lectureDuration.totalMinutes,
             totalHours: lectureDuration.totalHours,
-            totalDuration: lectureDuration.duration
+            totalDuration: lectureDuration.duration,
         });
         // Update course duration
         yield updateCourseDuration(lectureId);
@@ -377,7 +394,7 @@ const createSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, functio
             success: true,
             message: "Sub-lecture created successfully.",
             subLecture: newSubLecture,
-            duration: lectureDuration.duration
+            duration: lectureDuration.duration,
         });
     }
     catch (error) {
@@ -454,23 +471,38 @@ const editLecture = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     try {
         const { lectureTitle } = req.body;
         const { courseId, lectureId } = req.params;
-        // ✅ Find the lecture by ID and validate it's part of the given course
-        const lecture = yield lectureModel_1.Lecture.findOne({
-            _id: lectureId,
-            course: courseId, // Ensures the lecture belongs to the specified course
-        });
-        if (!lecture) {
+        console.log("Received IDs:", { courseId, lectureId, lectureTitle });
+        // 1. First verify the course exists
+        const course = yield courseModel_1.Course.findById(courseId);
+        if (!course) {
+            console.log("Course not found");
             res.status(404).json({
                 success: false,
-                message: "Lecture not found in the specified course!",
+                message: "Course not found!",
             });
             return;
         }
-        // ✅ Only update non-video fields (NO video handling here)
-        if (lectureTitle)
-            lecture.lectureTitle = lectureTitle;
-        // ✅ Save updated lecture
-        yield lecture.save();
+        // 2. Check if lecture exists in this course
+        const lectureExistsInCourse = course.lectures.some((lecture) => lecture.toString() === lectureId);
+        if (!lectureExistsInCourse) {
+            console.log("Lecture not found in course. Course lectures:", course.lectures);
+            res.status(404).json({
+                success: false,
+                message: "Lecture not found in this course!",
+            });
+            return;
+        }
+        // 3. Find and update the lecture
+        const lecture = yield lectureModel_1.Lecture.findByIdAndUpdate(lectureId, { lectureTitle }, { new: true });
+        if (!lecture) {
+            console.log("Lecture document not found");
+            res.status(404).json({
+                success: false,
+                message: "Lecture document not found!",
+            });
+            return;
+        }
+        console.log("Successfully updated lecture:", lecture);
         res.status(200).json({
             success: true,
             message: "Lecture updated successfully.",
@@ -526,7 +558,9 @@ const editSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (hours !== undefined || minutes !== undefined) {
             subLecture.duration = {
                 hours: hours !== undefined ? parseInt(hours) : subLecture.duration.hours,
-                minutes: minutes !== undefined ? parseInt(minutes) : subLecture.duration.minutes
+                minutes: minutes !== undefined
+                    ? parseInt(minutes)
+                    : subLecture.duration.minutes,
             };
         }
         // Save the lecture
@@ -537,7 +571,7 @@ const editSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, function*
         yield lectureModel_1.Lecture.findByIdAndUpdate(lectureId, {
             totalMinutes: lectureDuration.totalMinutes,
             totalHours: lectureDuration.totalHours,
-            totalDuration: lectureDuration.duration
+            totalDuration: lectureDuration.duration,
         });
         // Update course duration
         yield updateCourseDuration(lectureId);
@@ -545,7 +579,7 @@ const editSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, function*
             success: true,
             message: "Sub-lecture updated successfully.",
             subLecture,
-            duration: lectureDuration.duration
+            duration: lectureDuration.duration,
         });
     }
     catch (error) {
@@ -629,7 +663,7 @@ const removeSubLecture = (req, res) => __awaiter(void 0, void 0, void 0, functio
         yield lectureModel_1.Lecture.findByIdAndUpdate(lectureId, {
             totalMinutes: lectureDuration.totalMinutes,
             totalHours: lectureDuration.totalHours,
-            totalDuration: lectureDuration.duration
+            totalDuration: lectureDuration.duration,
         });
         // Update course duration
         yield updateCourseDuration(lectureId);
@@ -770,6 +804,7 @@ const removeCourse = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             // Delete the lecture
             yield lectureModel_1.Lecture.findByIdAndDelete(lecture._id);
         }
+        yield reviewModel_1.Review.deleteMany({ course: courseId });
         // Finally, delete the course
         yield courseModel_1.Course.findByIdAndDelete(courseId);
         res.status(200).json({
