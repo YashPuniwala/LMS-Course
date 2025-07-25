@@ -286,26 +286,29 @@ const CreateLecture = () => {
   };
 
   const updateLectureHandler = async () => {
-    if (!editLectureData.lectureTitle || !editLectureData.lectureId || !courseId) {
-      toast.error("Lecture title is required");
-      return;
+  if (!editLectureData.lectureTitle || !editLectureData.lectureId || !courseId) {
+    toast.error("Lecture title is required");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("lectureTitle", editLectureData.lectureTitle);
+
+    const result = await editLecture({
+      formData,
+      courseId: courseId,
+      lectureId: editLectureData.lectureId,
+    });
+
+    if ("data" in result) {
+      toast.success("Lecture updated successfully!");
+      handleCloseEditLectureDialog();
+      refetch();
     }
-  
-    try {
-      const result = await editLecture({
-        lectureTitle: editLectureData.lectureTitle,
-        courseId: courseId,
-        lectureId: editLectureData.lectureId,
-      });
-  
-      if ("data" in result) {
-        toast.success("Lecture updated successfully!");
-        handleCloseEditLectureDialog();
-        refetch();
-      }
-    } catch (error) {
-      toast.error("Failed to update lecture");
-    }
+  } catch (error) {
+    toast.error("Failed to update lecture");
+  }
 };
 
   const removeLectureHandler = async (lectureId: string) => {
