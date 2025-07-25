@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "stripe": "stripe listen --forward-to https://localhost:7000/api/v1/webhook",
+    "stripe": "stripe listen --forward-to https://lms-course-o1il.onrender.com/api/v1/webhook",
     "dev": "nodemon --ext ts --exec ts-node ./src/app.ts",
     "start": "NODE_OPTIONS='--max-old-space-size=2048' tsc && node ./dist/app.js"
   },
