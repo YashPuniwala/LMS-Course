@@ -31,6 +31,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+connectDB()
+
 // Routes
 app.use("/api/v1", user);
 app.use("/api/v1", course);
@@ -38,22 +40,5 @@ app.use("/api/v1", coursePurchase);
 app.use("/api/v1", courseProgress);
 app.use("/api/v1", dashboard);
 app.use("/api/v1", review);
-
-// Start server
-const startServer = async () => {
-  try {
-    await connectDB();
-
-    const PORT = process.env.PORT || 5001;
-    app.listen(PORT, () => {
-      console.log(`✅ Server is up and running on PORT: ${PORT}`);
-    });
-  } catch (error: any) {
-    console.error("❌ Failed to start server:", error.message);
-    process.exit(1);
-  }
-};
-
-startServer();
 
 export default app;
